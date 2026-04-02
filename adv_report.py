@@ -3,8 +3,9 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import re
-import requests
 from io import BytesIO
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 # -------------------------- 配置项 --------------------------
 # GitHub 模板文件的原始链接（替换为你的实际模板链接）
@@ -613,7 +614,7 @@ def calculate_budget_fluctuation(sheets,offer_base_info):
     for col in result_df.columns:
         if "%" in col or "总结" in col or "类型" in col or "状态" in col or "offer id" in col:
             continue
-        result_df[col] = pd.to_numeric(result_df[col], errors="ignore")
+        result_df[col] = pd.to_numeric(result_df[col], errors="coerce")
 
 
     return result_df
@@ -1258,7 +1259,7 @@ def calculate_large_drop_budget(sheets,offer_base_info):
     for col in result_df.columns:
         if "%" in col or "总结" in col or "类型" in col or "状态" in col or "offer id" in col:
             continue
-        result_df[col] = pd.to_numeric(result_df[col], errors="ignore")
+        result_df[col] = pd.to_numeric(result_df[col], errors="coerce")
     
     return result_df
 
@@ -2197,10 +2198,13 @@ def calculate_budget_rules(sheets,offer_base_info):
 def download_github_template():
     """从GitHub下载模板文件"""
     try:
-        response = requests.get(GITHUB_TEMPLATE_URL, timeout=10)
-        response.raise_for_status()
-        return BytesIO(response.content)
-    except Exception as e:
+        req = Request(
+            GITHUB_TEMPLATE_URL,
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+        with urlopen(req, timeout=10) as response:
+            return BytesIO(response.read())
+    except (HTTPError, URLError, TimeoutError, OSError) as e:
         st.error(f"模板下载失败：{str(e)}")
         return None
 
