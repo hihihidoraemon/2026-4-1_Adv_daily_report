@@ -193,11 +193,15 @@ def calculate_budget_fluctuation(sheets,offer_base_info):
     }
     df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
 
+    # 统一为 datetime.date，避免 date / Timestamp 混用导致 groupby 与 == day_new 对不齐
+    _time_parsed = pd.to_datetime(df["time"], errors="coerce")
+    df = df.loc[_time_parsed.notna()].copy()
+    df["time"] = _time_parsed.loc[_time_parsed.notna()].dt.date
 
     # 数值字段兜底空值为0（核心：无利润也保留数据）
     num_cols = ["clicks", "conversions", "revenue", "profit", "online_hour"]
-    df[num_cols] = df[num_cols].fillna(0).astype(float)
-
+    for _c in num_cols:
+        df[_c] = pd.to_numeric(df[_c], errors="coerce").fillna(0.0).astype(float)
 
     # 提取全局最新/次新日期
     global_unique_dates = sorted(df["time"].unique(), reverse=True)
@@ -274,6 +278,14 @@ def calculate_budget_fluctuation(sheets,offer_base_info):
         new = float(new)
         old = float(old)
         return (new - old) / old * 100 if old != 0 else 0.0
+
+    def offer_max_online_hour(dfo, day):
+        """该 offer 在指定自然日的 online_hour 取明细 max（与 offer 日聚合一致）"""
+        sub = dfo.loc[dfo["time"] == day, "online_hour"]
+        if sub.empty:
+            return 0.0
+        v = float(sub.max())
+        return v if np.isfinite(v) else 0.0
 
     # ======================
     # 3. 遍历波动Offer，处理Affiliate维度
@@ -536,11 +548,15 @@ def calculate_budget_fluctuation(sheets,offer_base_info):
         # ======================
         # 6. 在线时长/预算状态总结
         # ======================
-        oh_new = format_num(offer_row["online_hour_new"])
-        oh_old = format_num(offer_row["online_hour_old"])
-        oh_diff = format_num(float(offer_row["online_hour_new"]) - float(offer_row["online_hour_old"]))
-        
-        
+        # 与明细一致：按该 offer 在最新/次新两天的 online_hour 取 max（同 offer_daily 逻辑），
+        # 差值用已四舍五入到 2 位的两天数值相减，避免出现「两天都显示 24 但差值为 -24」的展示不一致
+        oh_raw_new = offer_max_online_hour(df_offer_all, day_new)
+        oh_raw_old = offer_max_online_hour(df_offer_all, day_old)
+        oh_new_val = round(oh_raw_new, 2)
+        oh_old_val = round(oh_raw_old, 2)
+        oh_new = format_num(oh_new_val)
+        oh_old = format_num(oh_old_val)
+        oh_diff = format_num(oh_new_val - oh_old_val)
 
         if status_latest == "PAUSE":
             print(1,status_latest)
