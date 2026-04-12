@@ -9,7 +9,7 @@ from urllib.request import Request, urlopen
 
 # -------------------------- 配置项 --------------------------
 # GitHub 模板文件的原始链接（替换为你的实际模板链接）
-GITHUB_TEMPLATE_URL = "https://raw.githubusercontent.com/hihihidoraemon/Advertiser_deal_logic/main/adv_report_template.xlsx"
+GITHUB_TEMPLATE_URL = "https://raw.githubusercontent.com/hihihidoraemon/Advertiser_deal_logic/main/20260401_adv_report_template.xlsx"
 # 页面基础配置
 st.set_page_config(
     page_title="广告数据分析工具",
